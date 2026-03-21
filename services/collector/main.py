@@ -11,9 +11,9 @@ import yaml
 
 from client import create_quote_ctx
 from collector import Collector
-from config import JQUANTS_REFRESH_TOKEN, LOOP_INTERVAL, WATCHLIST_PATH
+from config import FMP_API_KEY, JQUANTS_API_KEY, LOOP_INTERVAL, WATCHLIST_PATH
 from db import create_connection
-from providers import JQuantsProvider, MoomooProvider
+from providers import FMPProvider, JQuantsProvider, MoomooProvider, YFinanceProvider
 
 logging.basicConfig(
     level=logging.INFO,
@@ -51,13 +51,22 @@ def _build_providers(watchlist: dict) -> dict:
         providers["moomoo"] = MoomooProvider(quote_ctx)
 
     if "jquants" in needed:
-        from shared.auth.token_manager import JQuantsTokenManager
+        from shared.auth.token_manager import JQuantsAuth
 
-        if not JQUANTS_REFRESH_TOKEN:
-            logger.error("JQUANTS_REFRESH_TOKEN が未設定です")
+        if not JQUANTS_API_KEY:
+            logger.error("JQUANTS_API_KEY が未設定です")
             sys.exit(1)
-        token_manager = JQuantsTokenManager(JQUANTS_REFRESH_TOKEN)
-        providers["jquants"] = JQuantsProvider(token_manager)
+        auth = JQuantsAuth(JQUANTS_API_KEY)
+        providers["jquants"] = JQuantsProvider(auth)
+
+    if "yfinance" in needed:
+        providers["yfinance"] = YFinanceProvider()
+
+    if "fmp" in needed:
+        if not FMP_API_KEY:
+            logger.error("FMP_API_KEY が未設定です")
+            sys.exit(1)
+        providers["fmp"] = FMPProvider(FMP_API_KEY)
 
     missing = needed - set(providers.keys())
     if missing:

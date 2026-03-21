@@ -10,7 +10,7 @@ from typing import Any
 
 import redis
 
-from config import REDIS_HOST, REDIS_PORT, WATCHLIST_CODES
+from config import REDIS_HOST, REDIS_PORT
 from db import upsert_listed_info, upsert_statements
 from jquants_client import JQuantsFundamentalsClient
 

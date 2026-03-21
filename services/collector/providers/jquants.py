@@ -1,35 +1,44 @@
-"""J-Quants API 経由の Kline プロバイダ (日足のみ)"""
+"""J-Quants API V2 経由の Kline プロバイダ (日足のみ)"""
 
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import Any
 
-from shared.auth.token_manager import JQuantsTokenManager
+from shared.auth.token_manager import JQuantsAuth
 from shared.http_client import create_http_client
 
 logger = logging.getLogger(__name__)
 
-JQUANTS_API_BASE = "https://api.jquants.com/v1"
+JQUANTS_API_BASE = "https://api.jquants.com/v2"
 
 # J-Quantsがサポートするタイムフレーム
 SUPPORTED_TIMEFRAMES = {"K_DAY"}
 
 
 class JQuantsProvider:
-    """J-Quants daily_quotes からKlineを取得する"""
+    """J-Quants V2 daily bars からKlineを取得する"""
 
-    def __init__(self, token_manager: JQuantsTokenManager) -> None:
-        self._token_manager = token_manager
+    def __init__(self, auth: JQuantsAuth) -> None:
+        self._auth = auth
         self._client = create_http_client(base_url=JQUANTS_API_BASE)
+        self._subscription_end: datetime | None = None
 
     @property
     def name(self) -> str:
         return "jquants"
 
+    def _parse_subscription_end(self, message: str) -> datetime | None:
+        """400レスポンスからサブスクリプション終了日をパース"""
+        match = re.search(r"~\s*(\d{4}-\d{2}-\d{2})", message)
+        if match:
+            return datetime.strptime(match.group(1), "%Y-%m-%d")
+        return None
+
     def fetch_kline(self, code: str, timeframe: str, max_count: int) -> list[dict[str, Any]]:
-        """J-Quants daily_quotesからKlineを取得し、正規化して返す。
+        """J-Quants V2 daily bars からKlineを取得し、正規化して返す。
 
         code: J-Quants形式の銘柄コード (例: "72030" = トヨタ5桁コード)
         timeframe: "K_DAY" のみサポート
@@ -41,22 +50,37 @@ class JQuantsProvider:
         to_date = datetime.now()
         from_date = to_date - timedelta(days=int(max_count * 1.5) + 10)
 
+        # サブスクリプション期間外のリクエストを防止
+        if self._subscription_end and to_date > self._subscription_end:
+            to_date = self._subscription_end
+            from_date = to_date - timedelta(days=int(max_count * 1.5) + 10)
+
         params: dict[str, Any] = {
             "code": code,
             "from": from_date.strftime("%Y-%m-%d"),
             "to": to_date.strftime("%Y-%m-%d"),
         }
 
-        headers = self._token_manager.get_auth_headers()
+        headers = self._auth.get_auth_headers()
         resp = self._client.get(
-            "/prices/daily_quotes",
+            "/equities/bars/daily",
             params=params,
             headers=headers,
         )
-        resp.raise_for_status()
-        data = resp.json()
 
-        quotes = data.get("daily_quotes", [])
+        # サブスクリプション期間外の場合、終了日を学習してリトライ
+        if resp.status_code == 400:
+            body = resp.json()
+            end_date = self._parse_subscription_end(body.get("message", ""))
+            if end_date and self._subscription_end is None:
+                self._subscription_end = end_date
+                logger.info("J-Quants サブスクリプション終了日検出: %s", end_date.strftime("%Y-%m-%d"))
+                return self.fetch_kline(code, timeframe, max_count)
+
+        resp.raise_for_status()
+        body = resp.json()
+
+        quotes = body.get("data", [])
         if not quotes:
             logger.warning("J-Quants: %s のデータなし", code)
             return []
@@ -68,16 +92,16 @@ class JQuantsProvider:
         return [
             {
                 "timestamp": q["Date"],
-                "open": q.get("AdjustmentOpen", q.get("Open", 0)),
-                "high": q.get("AdjustmentHigh", q.get("High", 0)),
-                "low": q.get("AdjustmentLow", q.get("Low", 0)),
-                "close": q.get("AdjustmentClose", q.get("Close", 0)),
-                "volume": q.get("Volume", 0),
-                "turnover": q.get("TurnoverValue", 0),
+                "open": q.get("AdjO", q.get("O", 0)),
+                "high": q.get("AdjH", q.get("H", 0)),
+                "low": q.get("AdjL", q.get("L", 0)),
+                "close": q.get("AdjC", q.get("C", 0)),
+                "volume": q.get("Vo", 0),
+                "turnover": q.get("Va", 0),
             }
             for q in quotes
         ]
 
     def close(self) -> None:
         self._client.close()
-        self._token_manager.close()
+        self._auth.close()

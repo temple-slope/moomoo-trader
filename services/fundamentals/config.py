@@ -1,19 +1,33 @@
-"""環境変数読み込み"""
+"""環境変数 + watchlist.yml 読み込み"""
 
 import os
 
+import yaml
+
 API_SECRET = os.getenv("API_SECRET", "")
 
-JQUANTS_REFRESH_TOKEN = os.getenv("JQUANTS_REFRESH_TOKEN", "")
+JQUANTS_API_KEY = os.getenv("JQUANTS_API_KEY", "")
 
 REDIS_HOST = os.getenv("REDIS_HOST", "redis")
 REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 
 DB_PATH = os.getenv("DB_PATH", "/data/fundamentals.db")
 
-# 収集対象銘柄コード (カンマ区切り)
-_codes_str = os.getenv("WATCHLIST_CODES", "")
-WATCHLIST_CODES: list[str] = [c.strip() for c in _codes_str.split(",") if c.strip()]
+WATCHLIST_PATH = os.getenv("WATCHLIST_PATH", "shared/watchlist.yml")
 
 # 収集ループ間隔(秒) - デフォルト6時間
 LOOP_INTERVAL = int(os.getenv("LOOP_INTERVAL", "21600"))
+
+
+def _load_watchlist_codes() -> list[str]:
+    """watchlist.yml から jquants プロバイダの銘柄コードを抽出"""
+    try:
+        with open(WATCHLIST_PATH) as f:
+            data = yaml.safe_load(f)
+    except FileNotFoundError:
+        return []
+    targets = data.get("targets", [])
+    return [t["code"] for t in targets if t.get("provider") == "jquants"]
+
+
+WATCHLIST_CODES: list[str] = _load_watchlist_codes()

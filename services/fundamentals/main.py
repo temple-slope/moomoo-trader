@@ -11,10 +11,10 @@ import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
 
 from collector import FundamentalsCollector
-from config import API_SECRET, JQUANTS_REFRESH_TOKEN, LOOP_INTERVAL, WATCHLIST_CODES
+from config import API_SECRET, JQUANTS_API_KEY, LOOP_INTERVAL, WATCHLIST_CODES
 from db import create_connection, get_listed_info, get_statements
 from jquants_client import JQuantsFundamentalsClient
-from shared.auth.token_manager import JQuantsTokenManager
+from shared.auth.token_manager import JQuantsAuth
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -40,12 +40,12 @@ async def lifespan(app: FastAPI):
 
     if not API_SECRET:
         raise RuntimeError("API_SECRET が未設定です")
-    if not JQUANTS_REFRESH_TOKEN:
-        raise RuntimeError("JQUANTS_REFRESH_TOKEN が未設定です")
+    if not JQUANTS_API_KEY:
+        raise RuntimeError("JQUANTS_API_KEY が未設定です")
 
     conn = create_connection()
-    token_manager = JQuantsTokenManager(JQUANTS_REFRESH_TOKEN)
-    jq_client = JQuantsFundamentalsClient(token_manager)
+    auth = JQuantsAuth(JQUANTS_API_KEY)
+    jq_client = JQuantsFundamentalsClient(auth)
 
     _collector = FundamentalsCollector(
         client=jq_client,

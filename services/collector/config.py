@@ -10,10 +10,13 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
 
 DB_PATH = os.getenv("DB_PATH", "/data/klines.db")
 
-WATCHLIST_PATH = os.getenv("WATCHLIST_PATH", "watchlist.yml")
+WATCHLIST_PATH = os.getenv("WATCHLIST_PATH", "shared/watchlist.yml")
 
 # メインループ間隔(秒)
 LOOP_INTERVAL = int(os.getenv("LOOP_INTERVAL", "30"))
 
 # J-Quants API
-JQUANTS_REFRESH_TOKEN = os.getenv("JQUANTS_REFRESH_TOKEN", "")
+JQUANTS_API_KEY = os.getenv("JQUANTS_API_KEY", "")
+
+# FMP API
+FMP_API_KEY = os.getenv("FMP_API_KEY", "")
