@@ -63,7 +63,7 @@ CREATE INDEX IF NOT EXISTS idx_listed_info_code
 
 def create_connection(db_path: str = DB_PATH) -> sqlite3.Connection:
     """WALモードでSQLite接続を作成"""
-    conn = sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=5000")
     conn.executescript(SCHEMA)
@@ -93,27 +93,27 @@ def upsert_statements(conn: sqlite3.Connection, rows: list[dict[str, Any]]) -> i
     """
     params = [
         (
-            row.get("LocalCode", ""),
-            row.get("DisclosedDate", ""),
-            row.get("TypeOfDocument", ""),
-            row.get("NetSales"),
-            row.get("OperatingProfit"),
-            row.get("OrdinaryProfit"),
-            row.get("Profit"),
-            row.get("EarningsPerShare"),
-            row.get("TotalAssets"),
-            row.get("EquityToAssetRatio"),
-            row.get("BookValuePerShare"),
-            row.get("CashFlowsFromOperatingActivities"),
-            row.get("CashFlowsFromInvestingActivities"),
-            row.get("CashFlowsFromFinancingActivities"),
-            row.get("ResultDividendPerShareAnnual"),
-            row.get("ForecastNetSales"),
-            row.get("ForecastOperatingProfit"),
-            row.get("ForecastOrdinaryProfit"),
-            row.get("ForecastProfit"),
-            row.get("ForecastEarningsPerShare"),
-            row.get("ForecastDividendPerShareAnnual"),
+            row.get("Code", ""),
+            row.get("DiscDate", ""),
+            row.get("DocType", ""),
+            row.get("Sales"),
+            row.get("OP"),
+            row.get("OdP"),
+            row.get("NP"),
+            row.get("EPS"),
+            row.get("TA"),
+            row.get("EqAR"),
+            row.get("BPS"),
+            row.get("CFO"),
+            row.get("CFI"),
+            row.get("CFF"),
+            row.get("DivAnn"),
+            row.get("FSales"),
+            row.get("FOP"),
+            row.get("FOdP"),
+            row.get("FNP"),
+            row.get("FEPS"),
+            row.get("FDivAnn"),
             json.dumps(row, ensure_ascii=False),
         )
         for row in rows
@@ -142,13 +142,13 @@ def upsert_listed_info(conn: sqlite3.Connection, rows: list[dict[str, Any]]) -> 
         (
             row.get("Code", ""),
             row.get("Date", ""),
-            row.get("CompanyName", ""),
-            row.get("CompanyNameEnglish", ""),
-            row.get("Sector17Code", ""),
-            row.get("Sector33Code", ""),
-            row.get("MarketCode", ""),
-            row.get("MarketCodeName", ""),
-            row.get("ScaleCategory", ""),
+            row.get("CoName", ""),
+            row.get("CoNameEn", ""),
+            row.get("S17", ""),
+            row.get("S33", ""),
+            row.get("Mkt", ""),
+            row.get("MktNm", ""),
+            row.get("ScaleCat", ""),
             json.dumps(row, ensure_ascii=False),
         )
         for row in rows
