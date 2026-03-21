@@ -2,7 +2,7 @@
 
 ## プロジェクト概要
 
-マルチデータソース対応の株式トレーディングツール。moomoo OpenAPI、J-Quants API、EDINET API、kabuステーションAPIを統合し、相場データ取得・注文発注・ポートフォリオ管理・財務データ・開示情報をカバーする。
+マルチデータソース対応の株式トレーディングツール。moomoo OpenAPI、J-Quants API、EDINET APIを統合し、相場データ取得・注文発注・ポートフォリオ管理・財務データ・開示情報をカバーする。
 
 ## 技術スタック
 
@@ -26,13 +26,12 @@ src/                            # 共通ライブラリ（services/ と strategi
 └── broker/                     # ブローカー抽象化
     ├── base.py                 # BrokerClient Protocol + OrderResult/Position/AccountInfo dataclass
     ├── moomoo_broker.py        # 既存 src/ 関数群をラップ
-    ├── kabu_broker.py          # kabuステーション REST API
-    └── factory.py              # create_broker(broker_type) ファクトリ
+    └── factory.py              # create_broker() ファクトリ
 
 services/
 ├── data/                       # Data Service (:8000) - BrokerClient経由の照会系 REST API
 │   ├── main.py                 # FastAPI エンドポイント (8つ)
-│   ├── config.py               # API_SECRET, BROKER_TYPE
+│   ├── config.py               # API_SECRET
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── collector/                  # Collector Service - Kline 定期収集 (バッチ)
@@ -84,7 +83,7 @@ tests/                          # テストディレクトリ（未実装）
 ### 依存関係
 
 - `src/` は共通ライブラリ。services/data, strategies が import する
-- `src/broker/` は Protocol ベースの抽象化。moomoo, kabu を切替可能
+- `src/broker/` は Protocol ベースの抽象化（moomoo 実装）
 - `shared/` は全サービスから参照される共通ユーティリティ
 - 各モジュールは `client.py` の `MoomooClient` のみに依存するフラット構造
 - モジュール間の相互依存禁止
@@ -101,13 +100,12 @@ tests/                          # テストディレクトリ（未実装）
 | redis | :6379 | - | - | - |
 
 - OpenD接続: `host.docker.internal:11111`
-- kabuステーション接続: `host.docker.internal:18080`
 
 ### データ参照方式
 
 | 方式 | データソース | 用途 | 提供元 |
 |------|-------------|------|--------|
-| **ライブ参照** | OpenD / kabuステーション | リアルタイム株価・板情報・現在の注文状態 | data service (BrokerClient経由) |
+| **ライブ参照** | OpenD | リアルタイム株価・板情報・現在の注文状態 | data service (BrokerClient経由) |
 | **蓄積参照** | SQLite (collector経由) | 過去Kline・テクニカル指標計算・バックテスト | shared/kline_reader.py |
 | **財務参照** | SQLite (fundamentals経由) | 財務諸表・銘柄情報・決算発表予定 | fundamentals service |
 | **開示参照** | SQLite (disclosure経由) | 有報・大量保有報告書 | disclosure service |
@@ -122,7 +120,7 @@ tests/                          # テストディレクトリ（未実装）
 - `GET /health` - ヘルスチェック（認証不要）
 - `GET /quote/{code}` - リアルタイム株価
 - `GET /kline/{code}` - ローソク足（ktype, count パラメータ）
-- `GET /orderbook/{code}` - 板情報 (moomooのみ)
+- `GET /orderbook/{code}` - 板情報
 - `GET /positions` - 保有ポジション
 - `GET /account` - 口座情報
 - `GET /orders` - 注文一覧
@@ -141,12 +139,6 @@ tests/                          # テストディレクトリ（未実装）
 - `GET /documents` - 書類一覧 (date, sec_code パラメータ)
 - `GET /documents/{doc_id}` - 書類詳細
 - `GET /documents/{doc_id}/download` - 書類ダウンロード
-
-### ブローカー切替
-
-`BROKER_TYPE` 環境変数で切替:
-- `moomoo` (デフォルト): moomoo OpenD 経由
-- `kabu`: kabuステーション REST API 経由
 
 ### KlineProvider 切替
 
@@ -183,10 +175,6 @@ docker compose run --rm data python -c "import src.broker; print('ok')"
 | `OPEND_PORT` | data, collector | OpenDポート (default: 11111) |
 | `TRADE_ENV` | data | SIMULATE / REAL (default: SIMULATE) |
 | `TRADE_PASSWORD` | data | REAL環境でのアンロック用 |
-| `BROKER_TYPE` | data | moomoo / kabu (default: moomoo) |
-| `KABU_API_PASSWORD` | data (kabu) | kabuステーション APIパスワード |
-| `KABU_HOST` | data (kabu) | kabuステーションホスト (default: host.docker.internal) |
-| `KABU_PORT` | data (kabu) | kabuステーションポート (default: 18080) |
 | `REDIS_HOST` | collector, fundamentals, disclosure | Redis ホスト (default: redis) |
 | `REDIS_PORT` | collector, fundamentals, disclosure | Redis ポート (default: 6379) |
 | `DB_PATH` | collector | SQLiteパス (default: /data/klines.db) |
@@ -202,12 +190,6 @@ docker compose run --rm data python -c "import src.broker; print('ok')"
 - moomooブローカー使用時は全API通信がホストのOpenD (port 11111) 経由
 - Docker内からは `host.docker.internal:11111` で接続
 - OpenDが起動していないとテスト不可
-
-### kabuステーション前提 (kabuブローカー)
-
-- ローカルアプリ起動必須
-- Docker内からは `host.docker.internal:18080` で接続
-- Kline APIは未対応
 
 ### moomoo API パターン
 
@@ -225,7 +207,7 @@ docker compose run --rm data python -c "import src.broker; print('ok')"
 
 - US市場: 権限がないため現在使用不可 ("No Authority")
 - HK市場: moomoo検証に使用 (HK.00700 等)
-- JP市場: J-Quants, EDINET, kabuステーションで使用
+- JP市場: J-Quants, EDINETで使用
 - `TRADE_ENV=SIMULATE` がデフォルト。本番切替は慎重に
 
 ### セキュリティ

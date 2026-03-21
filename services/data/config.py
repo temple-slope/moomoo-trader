@@ -3,5 +3,3 @@
 import os
 
 API_SECRET = os.getenv("API_SECRET", "")
-
-BROKER_TYPE = os.getenv("BROKER_TYPE", "moomoo")

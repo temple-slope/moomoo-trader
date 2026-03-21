@@ -49,7 +49,7 @@ class BrokerClient(Protocol):
 
     @property
     def name(self) -> str:
-        """ブローカー名 (例: "moomoo", "kabu")"""
+        """ブローカー名 (例: "moomoo")"""
         ...
 
     def place_limit_order(

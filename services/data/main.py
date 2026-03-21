@@ -7,7 +7,7 @@ from dataclasses import asdict
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Request
 
-from config import API_SECRET, BROKER_TYPE
+from config import API_SECRET
 from src.broker import BrokerClient, create_broker
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -21,8 +21,8 @@ async def lifespan(app: FastAPI):
     global _broker
     if not API_SECRET:
         raise RuntimeError("API_SECRET が未設定です。起動を中止します。")
-    logger.info("Data Service 起動中... (broker=%s)", BROKER_TYPE)
-    _broker = create_broker(BROKER_TYPE)
+    logger.info("Data Service 起動中...")
+    _broker = create_broker()
     logger.info("ブローカー接続完了: %s", _broker.name)
     yield
     logger.info("Data Service 停止中...")

@@ -1,6 +1,6 @@
 # moomoo-trader
 
-マルチデータソース対応の株式トレーディングツール。moomoo OpenAPI、J-Quants API、EDINET API、kabuステーション API を統合し、相場データ取得・注文発注・ポートフォリオ管理・財務データ・開示情報をカバーする。
+マルチデータソース対応の株式トレーディングツール。moomoo OpenAPI、J-Quants API、EDINET API を統合し、相場データ取得・注文発注・ポートフォリオ管理・財務データ・開示情報をカバーする。
 
 ## アーキテクチャ
 
@@ -19,7 +19,6 @@ graph LR
     end
 
     Data -->|BrokerClient| OpenD[OpenD<br/>:11111]
-    Data -->|BrokerClient| Kabu[kabuステーション<br/>:18080]
     Collector -->|KlineProvider| OpenD
     Collector -->|KlineProvider| JQuants[J-Quants API]
     Collector -->|Pub/Sub 通知| Redis
@@ -35,9 +34,7 @@ graph LR
 ## 前提条件
 
 - Docker / Docker Compose
-- 利用するブローカーに応じた準備:
-  - **moomoo**: moomoo 証券口座 + [OpenD](https://openapi.moomoo.com/moomoo-api-doc/en/) がローカルで起動
-  - **kabu**: kabuステーションがローカルで起動
+- moomoo 証券口座 + [OpenD](https://openapi.moomoo.com/moomoo-api-doc/en/) がローカルで起動
 - 利用するデータソースに応じた API キー:
   - **J-Quants**: リフレッシュトークン（collector / fundamentals で使用）
   - **EDINET**: API キー（disclosure で使用）
@@ -78,14 +75,10 @@ curl http://localhost:8002/health   # Disclosure
 
 | 変数 | 必須 | デフォルト | 説明 |
 |------|------|-----------|------|
-| `BROKER_TYPE` | No | `moomoo` | ブローカー種別 (`moomoo` / `kabu`) |
-| `OPEND_HOST` | No | `host.docker.internal` | OpenD ホスト (moomoo 使用時) |
+| `OPEND_HOST` | No | `host.docker.internal` | OpenD ホスト |
 | `OPEND_PORT` | No | `11111` | OpenD ポート |
 | `TRADE_ENV` | No | `SIMULATE` | 取引環境 (`SIMULATE` / `REAL`) |
 | `TRADE_PASSWORD` | REAL時 | - | 本番環境アンロック用パスワード |
-| `KABU_API_PASSWORD` | kabu時 | - | kabuステーション API パスワード |
-| `KABU_HOST` | No | `host.docker.internal` | kabuステーションホスト |
-| `KABU_PORT` | No | `18080` | kabuステーションポート |
 
 ### Collector Service
 
@@ -132,7 +125,6 @@ moomoo-trader/
 │   └── broker/                 # ブローカー抽象化 (Protocol ベース)
 │       ├── base.py             # BrokerClient Protocol + dataclass
 │       ├── moomoo_broker.py    # moomoo OpenD 実装
-│       ├── kabu_broker.py      # kabuステーション実装
 │       └── factory.py          # create_broker() ファクトリ
 ├── services/
 │   ├── data/                   # Data Service (:8000) - 照会系 REST API
@@ -164,24 +156,15 @@ moomoo-trader/
 
 | 方式 | データソース | 用途 | 提供元 |
 |------|-------------|------|--------|
-| **ライブ参照** | OpenD / kabuステーション | リアルタイム株価・板情報・注文状態 | Data Service (BrokerClient 経由) |
+| **ライブ参照** | OpenD | リアルタイム株価・板情報・注文状態 | Data Service (BrokerClient 経由) |
 | **蓄積参照** | SQLite (collector 経由) | 過去 Kline・テクニカル指標・バックテスト | shared/kline_reader.py |
 | **財務参照** | SQLite (fundamentals 経由) | 財務諸表・銘柄情報・決算発表予定 | Fundamentals Service |
 | **開示参照** | SQLite (disclosure 経由) | 有報・大量保有報告書 | Disclosure Service |
 
-## ブローカー切替
-
-`BROKER_TYPE` 環境変数で切替。`src/broker/` の Protocol ベース抽象化により、サービスコードの変更なしで切替可能。
-
-| ブローカー | 対応機能 | 制約 |
-|-----------|---------|------|
-| `moomoo` (デフォルト) | quote, kline, orderbook, positions, account, orders, deals | OpenD 起動必須 |
-| `kabu` | quote, positions, account, orders, deals | Kline API 未対応、kabuステーション起動必須 |
-
 ## 市場制約
 
 - **HK 市場**: moomoo 検証に使用（HK.00700 等）
-- **JP 市場**: J-Quants, EDINET, kabuステーションで使用
+- **JP 市場**: J-Quants, EDINET で使用
 - **US 市場**: 権限なし（現在使用不可）
 
 ## 注意事項
