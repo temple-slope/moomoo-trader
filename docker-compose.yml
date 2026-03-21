@@ -1,8 +1,104 @@
 services:
-  app:
-    build: .
-    volumes:
-      - .:/app
+  data:
+    build:
+      context: .
+      dockerfile: services/data/Dockerfile
+    ports:
+      - '${DATA_PORT:-8000}:8000'
     env_file: .env
     extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - 'host.docker.internal:host-gateway'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  collector:
+    build:
+      context: .
+      dockerfile: services/collector/Dockerfile
+    volumes:
+      - kline-data:/data
+    env_file: .env
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  fundamentals:
+    build:
+      context: .
+      dockerfile: services/fundamentals/Dockerfile
+    ports:
+      - '${FUNDAMENTALS_PORT:-8001}:8001'
+    volumes:
+      - fundamentals-data:/data
+    env_file: .env
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  disclosure:
+    build:
+      context: .
+      dockerfile: services/disclosure/Dockerfile
+    ports:
+      - '${DISCLOSURE_PORT:-8002}:8002'
+    volumes:
+      - disclosure-data:/data
+    env_file: .env
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  kline-data:
+  fundamentals-data:
+  disclosure-data:

@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from moomoo import RET_OK
 
-from src.client import close_client, create_client
+from src.client import create_client
 
 
 def main() -> int:
@@ -34,7 +34,7 @@ def main() -> int:
         return 1
 
     finally:
-        close_client(client)
+        client.close()
 
 
 if __name__ == "__main__":
