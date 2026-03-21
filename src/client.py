@@ -6,10 +6,13 @@ import os
 from dataclasses import dataclass
 from types import TracebackType
 
-from dotenv import load_dotenv
-from moomoo import OpenQuoteContext, OpenSecTradeContext, TrdEnv
+from moomoo import OpenQuoteContext, OpenSecTradeContext, SecurityFirm, TrdEnv
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 
 @dataclass
@@ -34,17 +37,36 @@ class MoomooClient:
         self.close()
 
 
-def create_client() -> MoomooClient:
-    host = os.getenv("OPEND_HOST", "127.0.0.1")
-    port = int(os.getenv("OPEND_PORT", "11111"))
-    env_str = os.getenv("TRADE_ENV", "SIMULATE")
-    trd_env = TrdEnv.SIMULATE if env_str == "SIMULATE" else TrdEnv.REAL
+def create_client(
+    host: str | None = None,
+    port: int | None = None,
+    trade_env: str | None = None,
+    trade_password: str | None = None,
+    security_firm: str | None = None,
+    filter_trdmarket: str | None = None,
+) -> MoomooClient:
+    host = host or os.getenv("OPEND_HOST", "127.0.0.1")
+    port = port or int(os.getenv("OPEND_PORT", "11111"))
+    env_str = (trade_env or os.getenv("TRADE_ENV", "REAL")).upper()
+
+    if env_str == "SIMULATE":
+        trd_env = TrdEnv.SIMULATE
+    elif env_str == "REAL":
+        trd_env = TrdEnv.REAL
+    else:
+        raise ValueError(f"TRADE_ENV の値が不正です: {env_str!r} ('SIMULATE' or 'REAL')")
+
+    firm = security_firm or os.getenv("SECURITY_FIRM", "FUTUJP")
+    market = filter_trdmarket or os.getenv("FILTER_TRD_MARKET", "JP")
 
     quote_ctx = OpenQuoteContext(host=host, port=port)
-    trade_ctx = OpenSecTradeContext(host=host, port=port)
+    trade_ctx = OpenSecTradeContext(
+        host=host, port=port,
+        security_firm=firm, filter_trdmarket=market,
+    )
 
     if trd_env == TrdEnv.REAL:
-        password = os.getenv("TRADE_PASSWORD", "")
+        password = trade_password or os.getenv("TRADE_PASSWORD", "")
         if password:
             trade_ctx.unlock_trade(password)
 
@@ -53,7 +75,3 @@ def create_client() -> MoomooClient:
         trade_ctx=trade_ctx,
         trd_env=trd_env,
     )
-
-
-def close_client(client: MoomooClient) -> None:
-    client.close()
