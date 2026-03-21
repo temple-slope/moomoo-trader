@@ -1,0 +1,9 @@
+targets:
+  - code: "HK.00700"
+    provider: moomoo
+    timeframes: ["K_1M", "K_5M", "K_DAY"]
+
+defaults:
+  provider: moomoo
+  max_count: 200
+  fetch_delay: 1.0  # API呼び出し間隔(秒)
