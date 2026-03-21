@@ -2,6 +2,12 @@ targets:
   - code: "HK.00700"
     provider: moomoo
     timeframes: ["K_1M", "K_5M", "K_DAY"]
+  - code: "63300"
+    provider: jquants
+    timeframes: ["K_DAY"]
+  - code: "6330.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
 
 defaults:
   provider: moomoo
