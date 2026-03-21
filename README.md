@@ -1,100 +1,191 @@
 # moomoo-trader
 
-moomoo OpenAPI を使った米国株トレーディングツール。相場データ取得から注文発注までをカバーする。
+マルチデータソース対応の株式トレーディングツール。moomoo OpenAPI、J-Quants API、EDINET API、kabuステーション API を統合し、相場データ取得・注文発注・ポートフォリオ管理・財務データ・開示情報をカバーする。
+
+## アーキテクチャ
+
+```mermaid
+graph LR
+    Client[curl / strategies] -->|REST API| Data
+    Reader[shared/kline_reader] -->|読み取り専用| SQLite
+
+    subgraph Docker Compose
+        Data[Data Service<br/>:8000]
+        Collector[Collector<br/>バッチ]
+        Fundamentals[Fundamentals<br/>:8001]
+        Disclosure[Disclosure<br/>:8002]
+        Redis[(Redis)]
+        SQLite[(SQLite)]
+    end
+
+    Data -->|BrokerClient| OpenD[OpenD<br/>:11111]
+    Data -->|BrokerClient| Kabu[kabuステーション<br/>:18080]
+    Collector -->|KlineProvider| OpenD
+    Collector -->|KlineProvider| JQuants[J-Quants API]
+    Collector -->|Pub/Sub 通知| Redis
+    Collector -->|Kline 蓄積| SQLite
+    Fundamentals -->|財務データ| JQuants
+    Fundamentals -->|Pub/Sub 通知| Redis
+    Fundamentals -->|蓄積| SQLite
+    Disclosure -->|開示情報| EDINET[EDINET API]
+    Disclosure -->|Pub/Sub 通知| Redis
+    Disclosure -->|蓄積| SQLite
+```
 
 ## 前提条件
 
-- moomoo証券の口座（米国株取引対応）
-- [OpenD](https://openapi.moomoo.com/moomoo-api-doc/en/) がローカルで起動していること
-- Python 3.11+
+- Docker / Docker Compose
+- 利用するブローカーに応じた準備:
+  - **moomoo**: moomoo 証券口座 + [OpenD](https://openapi.moomoo.com/moomoo-api-doc/en/) がローカルで起動
+  - **kabu**: kabuステーションがローカルで起動
+- 利用するデータソースに応じた API キー:
+  - **J-Quants**: リフレッシュトークン（collector / fundamentals で使用）
+  - **EDINET**: API キー（disclosure で使用）
 
 ## セットアップ
 
-### Docker（推奨）
+### 1. 環境変数の設定
 
 ```bash
-cp .env.example .env  # 設定値を記入
-docker compose build
-docker compose run --rm app python scripts/test_connection.py
+cp .env.example .env
+# .env を編集して必要な値を設定
 ```
 
-### ローカル
+### 2. サービスの起動
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env  # 設定値を記入
+# 全サービス起動
+docker compose up -d
+
+# 個別起動（例: data + collector のみ）
+docker compose up -d data collector
+
+# ヘルスチェック
+curl http://localhost:8000/health   # Data
+curl http://localhost:8001/health   # Fundamentals
+curl http://localhost:8002/health   # Disclosure
 ```
 
-> **Security**: `.env`には認証情報が含まれます。絶対にコミットしないでください。
+## 環境変数一覧
 
-## 構成
+### 共通
+
+| 変数 | 必須 | 説明 |
+|------|------|------|
+| `API_SECRET` | Yes | 全サービス共通の Bearer 認証トークン |
+
+### Data Service
+
+| 変数 | 必須 | デフォルト | 説明 |
+|------|------|-----------|------|
+| `BROKER_TYPE` | No | `moomoo` | ブローカー種別 (`moomoo` / `kabu`) |
+| `OPEND_HOST` | No | `host.docker.internal` | OpenD ホスト (moomoo 使用時) |
+| `OPEND_PORT` | No | `11111` | OpenD ポート |
+| `TRADE_ENV` | No | `SIMULATE` | 取引環境 (`SIMULATE` / `REAL`) |
+| `TRADE_PASSWORD` | REAL時 | - | 本番環境アンロック用パスワード |
+| `KABU_API_PASSWORD` | kabu時 | - | kabuステーション API パスワード |
+| `KABU_HOST` | No | `host.docker.internal` | kabuステーションホスト |
+| `KABU_PORT` | No | `18080` | kabuステーションポート |
+
+### Collector Service
+
+| 変数 | 必須 | デフォルト | 説明 |
+|------|------|-----------|------|
+| `OPEND_HOST` | No | `host.docker.internal` | OpenD ホスト |
+| `OPEND_PORT` | No | `11111` | OpenD ポート |
+| `REDIS_HOST` | No | `redis` | Redis ホスト |
+| `REDIS_PORT` | No | `6379` | Redis ポート |
+| `DB_PATH` | No | `/data/klines.db` | SQLite パス |
+| `LOOP_INTERVAL` | No | `30` | メインループ間隔（秒） |
+| `JQUANTS_REFRESH_TOKEN` | J-Quants時 | - | J-Quants リフレッシュトークン |
+
+### Fundamentals Service
+
+| 変数 | 必須 | デフォルト | 説明 |
+|------|------|-----------|------|
+| `JQUANTS_REFRESH_TOKEN` | Yes | - | J-Quants リフレッシュトークン |
+| `WATCHLIST_CODES` | Yes | - | 収集対象銘柄コード（カンマ区切り） |
+| `REDIS_HOST` | No | `redis` | Redis ホスト |
+| `REDIS_PORT` | No | `6379` | Redis ポート |
+| `DB_PATH` | No | `/data/fundamentals.db` | SQLite パス |
+| `LOOP_INTERVAL` | No | `21600` | 収集間隔（秒、デフォルト 6 時間） |
+
+### Disclosure Service
+
+| 変数 | 必須 | デフォルト | 説明 |
+|------|------|-----------|------|
+| `EDINET_API_KEY` | Yes | - | EDINET API キー |
+| `REDIS_HOST` | No | `redis` | Redis ホスト |
+| `REDIS_PORT` | No | `6379` | Redis ポート |
+| `DB_PATH` | No | `/data/disclosure.db` | SQLite パス |
+| `LOOP_INTERVAL` | No | `21600` | 収集間隔（秒、デフォルト 6 時間） |
+
+## ディレクトリ構成
 
 ```
 moomoo-trader/
-├── src/
-│   ├── __init__.py
-│   ├── client.py        # OpenD接続・認証管理
-│   ├── market_data.py   # 相場データ取得（株価、板、ローソク足）
-│   ├── order.py         # 注文発注・管理（成行、指値、逆指値等）
-│   └── portfolio.py     # ポジション・口座情報照会
-├── strategies/
-│   └── example.py       # サンプル戦略
-├── scripts/
-│   └── test_connection.py  # OpenD疎通テスト
-├── tests/
-│   └── __init__.py
-├── Dockerfile
+├── src/                         # 共通ライブラリ（services/ と strategies/ が共用）
+│   ├── client.py               # MoomooClient (コンテキストマネージャ対応)
+│   ├── market_data.py          # 株価・Kline・板情報
+│   ├── order.py                # 発注・キャンセル
+│   ├── portfolio.py            # ポジション・口座・注文一覧・約定
+│   └── broker/                 # ブローカー抽象化 (Protocol ベース)
+│       ├── base.py             # BrokerClient Protocol + dataclass
+│       ├── moomoo_broker.py    # moomoo OpenD 実装
+│       ├── kabu_broker.py      # kabuステーション実装
+│       └── factory.py          # create_broker() ファクトリ
+├── services/
+│   ├── data/                   # Data Service (:8000) - 照会系 REST API
+│   ├── collector/              # Collector Service - Kline 定期収集
+│   ├── fundamentals/           # Fundamentals Service (:8001) - 財務データ
+│   └── disclosure/             # Disclosure Service (:8002) - 開示情報
+├── shared/                     # 全サービス共通ユーティリティ
+│   ├── kline_reader.py         # SQLite Kline 読み取り（読み取り専用）
+│   ├── utils.py                # df_to_records 等
+│   ├── http_client.py          # httpx + リトライ
+│   └── auth/
+│       └── token_manager.py    # J-Quants トークン自動更新
+├── strategies/                 # トレーディング戦略
+├── scripts/                    # ユーティリティスクリプト
 ├── docker-compose.yml
-├── .env.example
-├── .gitignore
-├── requirements.txt
-└── README.md
+└── .env.example
 ```
 
-## 使い方
+## サービス詳細
 
-### 相場データ取得
+各サービスの詳細は個別の README を参照:
 
-```python
-from src.client import create_client
-from src.market_data import get_quote, get_kline
+- [Data Service](services/data/README.md) - 相場データ・ポートフォリオ照会 REST API
+- [Collector Service](services/collector/README.md) - Kline 定期収集バッチ
+- [Fundamentals Service](services/fundamentals/README.md) - J-Quants 財務データ
+- [Disclosure Service](services/disclosure/README.md) - EDINET 開示情報
 
-ctx = create_client()
-quote = get_quote(ctx, "US.AAPL")
-kline = get_kline(ctx, "US.AAPL", ktype="K_1M", count=100)
-```
+## データ参照方式
 
-### 注文発注
+| 方式 | データソース | 用途 | 提供元 |
+|------|-------------|------|--------|
+| **ライブ参照** | OpenD / kabuステーション | リアルタイム株価・板情報・注文状態 | Data Service (BrokerClient 経由) |
+| **蓄積参照** | SQLite (collector 経由) | 過去 Kline・テクニカル指標・バックテスト | shared/kline_reader.py |
+| **財務参照** | SQLite (fundamentals 経由) | 財務諸表・銘柄情報・決算発表予定 | Fundamentals Service |
+| **開示参照** | SQLite (disclosure 経由) | 有報・大量保有報告書 | Disclosure Service |
 
-```python
-from src.order import place_limit_order, place_market_order
+## ブローカー切替
 
-# 指値注文
-place_limit_order(ctx, code="US.AAPL", side="BUY", qty=1, price=150.0)
+`BROKER_TYPE` 環境変数で切替。`src/broker/` の Protocol ベース抽象化により、サービスコードの変更なしで切替可能。
 
-# 成行注文
-place_market_order(ctx, code="US.AAPL", side="BUY", qty=1)
-```
+| ブローカー | 対応機能 | 制約 |
+|-----------|---------|------|
+| `moomoo` (デフォルト) | quote, kline, orderbook, positions, account, orders, deals | OpenD 起動必須 |
+| `kabu` | quote, positions, account, orders, deals | Kline API 未対応、kabuステーション起動必須 |
 
-### ポジション照会
+## 市場制約
 
-```python
-from src.portfolio import get_positions, get_account_info
-
-positions = get_positions(ctx)
-account = get_account_info(ctx)
-```
-
-## API制限
-
-- 注文: 30秒間に最大15リクエスト / アカウント
-- 米国株の価格精度: 小数点以下4桁
-- 24時間取引帯は指値注文のみ（Day / GTC）
+- **HK 市場**: moomoo 検証に使用（HK.00700 等）
+- **JP 市場**: J-Quants, EDINET, kabuステーションで使用
+- **US 市場**: 権限なし（現在使用不可）
 
 ## 注意事項
 
-- ライブ取引前にアカウントのアンロックが必要
-- 必ずペーパートレードで動作確認してからライブに切り替えること
-- OpenD がローカルで起動していないとAPI通信できない
+- `TRADE_ENV=SIMULATE` がデフォルト。本番切替は慎重に
+- `.env` には認証情報が含まれるため絶対にコミットしない
+- 各サービスはシークレット未設定時に起動を拒否する（fail-closed）
