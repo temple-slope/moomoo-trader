@@ -36,7 +36,7 @@ graph LR
 - Docker / Docker Compose
 - moomoo 証券口座 + [OpenD](https://openapi.moomoo.com/moomoo-api-doc/en/) がローカルで起動
 - 利用するデータソースに応じた API キー:
-  - **J-Quants**: リフレッシュトークン（collector / fundamentals で使用）
+  - **J-Quants**: API キー（collector / fundamentals で使用）
   - **EDINET**: API キー（disclosure で使用）
 
 ## セットアップ
@@ -90,13 +90,13 @@ curl http://localhost:8002/health   # Disclosure
 | `REDIS_PORT` | No | `6379` | Redis ポート |
 | `DB_PATH` | No | `/data/klines.db` | SQLite パス |
 | `LOOP_INTERVAL` | No | `30` | メインループ間隔（秒） |
-| `JQUANTS_REFRESH_TOKEN` | J-Quants時 | - | J-Quants リフレッシュトークン |
+| `JQUANTS_API_KEY` | J-Quants時 | - | J-Quants API キー |
 
 ### Fundamentals Service
 
 | 変数 | 必須 | デフォルト | 説明 |
 |------|------|-----------|------|
-| `JQUANTS_REFRESH_TOKEN` | Yes | - | J-Quants リフレッシュトークン |
+| `JQUANTS_API_KEY` | Yes | - | J-Quants API キー |
 | `WATCHLIST_CODES` | Yes | - | 収集対象銘柄コード（カンマ区切り） |
 | `REDIS_HOST` | No | `redis` | Redis ホスト |
 | `REDIS_PORT` | No | `6379` | Redis ポート |
@@ -136,7 +136,7 @@ moomoo-trader/
 │   ├── utils.py                # df_to_records 等
 │   ├── http_client.py          # httpx + リトライ
 │   └── auth/
-│       └── token_manager.py    # J-Quants トークン自動更新
+│       └── token_manager.py    # J-Quants API Key 認証
 ├── strategies/                 # トレーディング戦略
 ├── scripts/                    # ユーティリティスクリプト
 ├── docker-compose.yml

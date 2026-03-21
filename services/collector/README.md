@@ -79,14 +79,14 @@ defaults:
 | `DB_PATH` | No | `/data/klines.db` | SQLite パス |
 | `WATCHLIST_PATH` | No | `watchlist.yml` | 収集対象定義ファイル |
 | `LOOP_INTERVAL` | No | `30` | メインループ間隔（秒） |
-| `JQUANTS_REFRESH_TOKEN` | jquants 時 | - | J-Quants リフレッシュトークン |
+| `JQUANTS_API_KEY` | jquants 時 | - | J-Quants API キー |
 
 ## 依存関係
 
 - Redis（Pub/Sub 通知）
 - SQLite（WAL モード、ボリューム `kline-data` にマウント）
 - OpenD（moomoo provider 使用時）
-- J-Quants API（jquants provider 使用時、`shared/auth/token_manager.py` でトークン自動更新）
+- J-Quants API（jquants provider 使用時、`shared/auth/token_manager.py` で API Key 認証）
 
 ## Docker
 

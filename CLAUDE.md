@@ -44,7 +44,7 @@ services/
 │   ├── providers/              # KlineProvider 実装
 │   │   ├── base.py             # KlineProvider Protocol
 │   │   ├── moomoo.py           # moomoo OpenD
-│   │   └── jquants.py          # J-Quants daily_quotes
+│   │   └── jquants.py          # J-Quants V2 daily bars
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── fundamentals/               # Fundamentals Service (:8001) - J-Quants財務データ
@@ -69,7 +69,7 @@ shared/
 ├── utils.py                    # df_to_records 等
 ├── http_client.py              # httpx + リトライの共通クライアント
 └── auth/
-    └── token_manager.py        # J-Quants リフレッシュトークン→IDトークン自動更新
+    └── token_manager.py        # J-Quants API Key 認証 (V2)
 
 strategies/
 └── example.py                  # 移動平均クロスオーバー戦略サンプル (src/ を import)
@@ -179,7 +179,7 @@ docker compose run --rm data python -c "import src.broker; print('ok')"
 | `REDIS_PORT` | collector, fundamentals, disclosure | Redis ポート (default: 6379) |
 | `DB_PATH` | collector | SQLiteパス (default: /data/klines.db) |
 | `LOOP_INTERVAL` | collector | ポーリング間隔秒 (default: 30) |
-| `JQUANTS_REFRESH_TOKEN` | collector, fundamentals | J-Quants リフレッシュトークン |
+| `JQUANTS_API_KEY` | collector, fundamentals | J-Quants API キー |
 | `WATCHLIST_CODES` | fundamentals | 収集対象銘柄コード (カンマ区切り) |
 | `EDINET_API_KEY` | disclosure | EDINET API キー |
 
@@ -199,8 +199,8 @@ docker compose run --rm data python -c "import src.broker; print('ok')"
 
 ### J-Quants API パターン
 
-- IDトークンは24時間有効、リフレッシュトークンは1週間有効
-- `shared/auth/token_manager.py` で自動更新
+- V2 API: API Key をヘッダー (`x-api-key`) に付与するだけで認証完了
+- `shared/auth/token_manager.py` の `JQuantsAuth` クラスで認証ヘッダーを生成
 - `shared/http_client.py` でリトライ付きリクエスト
 
 ### 市場制約

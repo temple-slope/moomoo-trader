@@ -55,7 +55,7 @@ curl -H "Authorization: Bearer $API_SECRET" http://localhost:8001/announcement
 | 変数 | 必須 | デフォルト | 説明 |
 |------|------|-----------|------|
 | `API_SECRET` | Yes | - | Bearer 認証トークン。未設定時は起動拒否 |
-| `JQUANTS_REFRESH_TOKEN` | Yes | - | J-Quants リフレッシュトークン |
+| `JQUANTS_API_KEY` | Yes | - | J-Quants API キー |
 | `WATCHLIST_CODES` | Yes | - | 収集対象銘柄コード（カンマ区切り、例: `7203,9984,6758`） |
 | `REDIS_HOST` | No | `redis` | Redis ホスト |
 | `REDIS_PORT` | No | `6379` | Redis ポート |
@@ -64,13 +64,11 @@ curl -H "Authorization: Bearer $API_SECRET" http://localhost:8001/announcement
 
 ## セットアップ
 
-### J-Quants リフレッシュトークンの取得
+### J-Quants API キーの取得
 
 1. [J-Quants](https://jpx-jquants.com/) でアカウント登録
-2. メールアドレス・パスワードで認証し、リフレッシュトークンを取得
-3. `.env` の `JQUANTS_REFRESH_TOKEN` に設定
-
-リフレッシュトークンは 1 週間有効。`shared/auth/token_manager.py` が ID トークン（24 時間有効）を自動更新する。
+2. ダッシュボードから API キーを発行
+3. `.env` の `JQUANTS_API_KEY` に設定
 
 ### 収集対象の設定
 
@@ -89,7 +87,7 @@ WATCHLIST_CODES=7203,9984,6758,8306
 
 ## 依存関係
 
-- J-Quants API（`shared/auth/token_manager.py` でトークン管理）
+- J-Quants API（`shared/auth/token_manager.py` で API Key 認証）
 - `shared/http_client.py`（リトライ付き HTTP クライアント）
 - Redis（Pub/Sub 通知）
 - SQLite（WAL モード、ボリューム `fundamentals-data` にマウント）
