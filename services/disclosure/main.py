@@ -13,7 +13,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from collector import DisclosureCollector
-from config import API_SECRET, DOWNLOAD_DIR, EDINET_API_KEY, LOOP_INTERVAL
+from config import API_SECRET, DOWNLOAD_DIR, EDINET_API_KEY, LOOKBACK_DAYS, LOOP_INTERVAL
 from db import create_connection, get_document_by_id, get_documents
 from edinet_client import EdinetClient
 
@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
     conn = create_connection()
     edinet_client = EdinetClient(EDINET_API_KEY)
 
-    _collector = DisclosureCollector(client=edinet_client, conn=conn)
+    _collector = DisclosureCollector(client=edinet_client, conn=conn, lookback_days=LOOKBACK_DAYS)
 
     _collector_thread = threading.Thread(target=_collector_loop, args=(_collector,), daemon=True)
     _collector_thread.start()
