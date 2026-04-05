@@ -88,6 +88,31 @@ services:
       retries: 3
       start_period: 10s
 
+  news:
+    build:
+      context: .
+      dockerfile: services/news/Dockerfile
+    ports:
+      - '${NEWS_PORT:-8003}:8003'
+    volumes:
+      - news-data:/data
+    env_file: .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   redis:
     image: redis:7-alpine
     ports:
@@ -102,3 +127,4 @@ volumes:
   kline-data:
   fundamentals-data:
   disclosure-data:
+  news-data:
