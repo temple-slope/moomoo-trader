@@ -1,15 +1,175 @@
 targets:
-  - code: "HK.00700"
-    provider: moomoo
-    timeframes: ["K_1M", "K_5M", "K_DAY"]
-  - code: "63300"
-    provider: jquants
+  # 日経225 主要構成銘柄 (yfinance, 日足)
+  - code: "7203.T"
+    provider: yfinance
     timeframes: ["K_DAY"]
-  - code: "6330.T"
+  - code: "6981.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "9983.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "6902.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "8306.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "9083.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "6367.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "4307.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "6758.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "7011.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "7013.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "4385.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "8058.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "8601.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "6762.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "4063.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+  - code: "9020.T"
     provider: yfinance
     timeframes: ["K_DAY"]
 
+  # --- 日米業種リードラグ戦略用 ETF ---
+  # 米国 Select Sector SPDR ETF (S&P 500 11セクター)
+  - code: "XLB"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "XLE"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "XLF"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "XLI"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "XLK"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "XLP"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "XLU"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "XLV"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "XLY"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "XLC"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "XLRE"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+
+  # 日本 NEXT FUNDS TOPIX-17 業種別 ETF (17銘柄)
+  - code: "1617.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1618.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1619.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1620.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1621.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1622.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1623.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1624.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1625.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1626.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1627.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1628.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1629.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1630.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1631.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1632.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+  - code: "1633.T"
+    provider: yfinance
+    timeframes: ["K_DAY"]
+    max_count: 5000
+
 defaults:
-  provider: moomoo
+  provider: yfinance
   max_count: 200
-  fetch_delay: 1.0  # API呼び出し間隔(秒)
+  fetch_delay: 1.0
