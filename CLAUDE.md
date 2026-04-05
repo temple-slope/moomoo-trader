@@ -2,7 +2,7 @@
 
 ## プロジェクト概要
 
-マルチデータソース対応の株式トレーディングツール。moomoo OpenAPI、J-Quants API、EDINET APIを統合し、相場データ取得・注文発注・ポートフォリオ管理・財務データ・開示情報をカバーする。
+マルチデータソース対応の株式トレーディングツール。moomoo OpenAPI、J-Quants API、EDINET API、Google News RSS、X APIを統合し、相場データ取得・注文発注・ポートフォリオ管理・財務データ・開示情報・マーケットニュースをカバーする。
 
 ## 技術スタック
 
@@ -55,12 +55,23 @@ services/
 │   ├── config.py
 │   ├── Dockerfile
 │   └── requirements.txt
-└── disclosure/                 # Disclosure Service (:8002) - EDINET開示情報
-    ├── main.py                 # FastAPI + 日次収集
-    ├── edinet_client.py        # EDINET API v2
-    ├── collector.py            # 日次収集 + Redis通知
-    ├── db.py                   # documents, filings テーブル
+├── disclosure/                 # Disclosure Service (:8002) - EDINET開示情報
+│   ├── main.py                 # FastAPI + 日次収集
+│   ├── edinet_client.py        # EDINET API v2
+│   ├── collector.py            # 日次収集 + Redis通知
+│   ├── db.py                   # documents, filings テーブル
+│   ├── config.py
+│   ├── Dockerfile
+│   └── requirements.txt
+└── news/                       # News Service (:8003) - マーケットニュース収集
+    ├── main.py                 # FastAPI + 定期収集
+    ├── collector.py            # プロバイダ巡回 + Redis通知
+    ├── db.py                   # articles テーブル
     ├── config.py
+    ├── providers/              # NewsProvider 実装
+    │   ├── base.py             # NewsProvider Protocol
+    │   ├── google_news.py      # Google News RSS
+    │   └── x.py                # X (Twitter) API v2
     ├── Dockerfile
     └── requirements.txt
 
@@ -97,6 +108,7 @@ tests/                          # テストディレクトリ（未実装）
 | collector | なし | redis | kline-data:/data | .env |
 | fundamentals | :8001 | redis | fundamentals-data:/data | .env |
 | disclosure | :8002 | redis | disclosure-data:/data | .env |
+| news | :8003 | redis | news-data:/data | .env |
 | redis | :6379 | - | - | - |
 
 - OpenD接続: `host.docker.internal:11111`
@@ -109,6 +121,7 @@ tests/                          # テストディレクトリ（未実装）
 | **蓄積参照** | SQLite (collector経由) | 過去Kline・テクニカル指標計算・バックテスト | shared/kline_reader.py |
 | **財務参照** | SQLite (fundamentals経由) | 財務諸表・銘柄情報・決算発表予定 | fundamentals service |
 | **開示参照** | SQLite (disclosure経由) | 有報・大量保有報告書 | disclosure service |
+| **ニュース参照** | SQLite (news経由) | マーケットニュース・X投稿 | news service |
 
 - collector が OpenD/J-Quants → SQLite にデータを蓄積し、Redis Pub/Sub で通知
 - 蓄積データは `shared/kline_reader.py` の `KlineReader` で読み取り専用アクセス
@@ -132,6 +145,16 @@ tests/                          # テストディレクトリ（未実装）
 - `GET /statements/{code}` - 財務情報
 - `GET /info/{code}` - 銘柄情報
 - `GET /announcement` - 決算発表予定
+- `GET /stats` - 収集状況統計
+- `GET /screening` - 成長銘柄スクリーニング (min_sales_growth, min_profit_growth, sector, market, limit)
+- `GET /screening/consecutive-growth` - 連続増収増益 (min_periods, metric=both|sales|profit, sector, market, limit)
+- `GET /screening/margin-improvement` - 営業利益率改善 (min_periods, min_margin_change, sector, market, limit)
+- `GET /screening/forecast-revision` - 業績予想上方修正 (min_revision_pct, target=profit|sales|both, sector, market, limit)
+- `GET /screening/eps-growth` - EPS成長率 (min_eps_growth, sector, market, limit)
+- `GET /screening/quality` - 財務健全性 (min_equity_ratio, require_positive_cfo, require_negative_cfi, require_positive_fcf, min_roe, sector, market, limit)
+- `GET /screening/multi-factor` - マルチファクタースコア (weights=JSON, sector, market, limit)
+- `GET /screening/sector-relative` - セクター内偏差値 (sector33_code, factors=JSON, limit)
+- `POST /bulk-collect` - 手動バルク収集トリガー (date_from, date_to)
 
 **Disclosure Service (:8002)** - 認証: `Authorization: Bearer {API_SECRET}`
 
@@ -139,6 +162,12 @@ tests/                          # テストディレクトリ（未実装）
 - `GET /documents` - 書類一覧 (date, sec_code パラメータ)
 - `GET /documents/{doc_id}` - 書類詳細
 - `GET /documents/{doc_id}/download` - 書類ダウンロード
+
+**News Service (:8003)** - 認証: `Authorization: Bearer {API_SECRET}`
+
+- `GET /health` - ヘルスチェック（認証不要）
+- `GET /articles` - 記事一覧 (provider, query, since, limit パラメータ)
+- `GET /articles/{article_id}` - 記事詳細
 
 ### KlineProvider 切替
 
@@ -170,18 +199,23 @@ docker compose run --rm data python -c "import src.broker; print('ok')"
 
 | 変数 | サービス | 説明 |
 |------|----------|------|
-| `API_SECRET` | data, fundamentals, disclosure | Bearer認証トークン（必須） |
+| `API_SECRET` | data, fundamentals, disclosure, news | Bearer認証トークン（必須） |
 | `OPEND_HOST` | data, collector | OpenDホスト (default: host.docker.internal) |
 | `OPEND_PORT` | data, collector | OpenDポート (default: 11111) |
 | `TRADE_ENV` | data | SIMULATE / REAL (default: SIMULATE) |
 | `TRADE_PASSWORD` | data | REAL環境でのアンロック用 |
-| `REDIS_HOST` | collector, fundamentals, disclosure | Redis ホスト (default: redis) |
-| `REDIS_PORT` | collector, fundamentals, disclosure | Redis ポート (default: 6379) |
+| `REDIS_HOST` | collector, fundamentals, disclosure, news | Redis ホスト (default: redis) |
+| `REDIS_PORT` | collector, fundamentals, disclosure, news | Redis ポート (default: 6379) |
 | `DB_PATH` | collector | SQLiteパス (default: /data/klines.db) |
 | `LOOP_INTERVAL` | collector | ポーリング間隔秒 (default: 30) |
 | `JQUANTS_API_KEY` | collector, fundamentals | J-Quants API キー |
 | `WATCHLIST_CODES` | fundamentals | 収集対象銘柄コード (カンマ区切り) |
+| `BULK_COLLECT_ENABLED` | fundamentals | 全銘柄バルク収集有効化 (default: true) |
+| `BULK_FETCH_DELAY` | fundamentals | バルク収集リクエスト間隔秒 (default: 13.0, Freeプラン対応) |
+| `BULK_LOOKBACK_DAYS` | fundamentals | バルク収集遡り日数 (default: 730) |
 | `EDINET_API_KEY` | disclosure | EDINET API キー |
+| `NEWS_QUERIES` | news | 検索クエリ (カンマ区切り, default: 株式 マーケット,日経平均,stock market) |
+| `X_BEARER_TOKEN` | news | X API Bearer Token (未設定でXプロバイダ無効) |
 
 ## 開発ルール
 
