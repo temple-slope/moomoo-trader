@@ -18,6 +18,12 @@ WATCHLIST_PATH = os.getenv("WATCHLIST_PATH", "shared/watchlist.yml")
 # 収集ループ間隔(秒) - デフォルト6時間
 LOOP_INTERVAL = int(os.getenv("LOOP_INTERVAL", "21600"))
 
+# バルク収集: リクエスト間隔(秒) - Freeプラン: 13秒 (5件/分)
+BULK_FETCH_DELAY = float(os.getenv("BULK_FETCH_DELAY", "13.0"))
+
+# バルク収集: 全銘柄収集を有効化
+BULK_COLLECT_ENABLED = os.getenv("BULK_COLLECT_ENABLED", "true").lower() == "true"
+
 
 def _load_watchlist_codes() -> list[str]:
     """watchlist.yml から jquants プロバイダの銘柄コードを抽出"""

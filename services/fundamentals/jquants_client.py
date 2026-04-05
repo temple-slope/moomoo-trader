@@ -34,6 +34,22 @@ class JQuantsFundamentalsClient:
         data = self._get("/fins/summary", params=params)
         return data.get("data", [])
 
+    def get_statements_by_date(self, date: str) -> list[dict]:
+        """指定日に開示された全銘柄の決算データを取得（pagination対応）
+
+        注意: Lightプラン以上でのみ利用可能。Freeプランでは403が返る。
+        """
+        all_rows: list[dict] = []
+        params: dict[str, Any] = {"date": date}
+        while True:
+            data = self._get("/fins/statements", params=params)
+            all_rows.extend(data.get("statements", []))
+            pagination_key = data.get("pagination_key")
+            if not pagination_key:
+                break
+            params["pagination_key"] = pagination_key
+        return all_rows
+
     def get_listed_info(self, code: str = "", date: str = "") -> list[dict]:
         """銘柄情報を取得"""
         params: dict[str, Any] = {}
@@ -42,6 +58,11 @@ class JQuantsFundamentalsClient:
         if date:
             params["date"] = date
         data = self._get("/equities/master", params=params)
+        return data.get("data", [])
+
+    def get_all_listed_info(self) -> list[dict]:
+        """全上場銘柄の一覧を取得（パラメータなし）"""
+        data = self._get("/equities/master")
         return data.get("data", [])
 
     def get_announcement(self) -> list[dict]:
