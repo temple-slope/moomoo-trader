@@ -62,7 +62,8 @@ class YFinanceProvider:
             logger.warning("yfinance: %s のデータなし (interval=%s)", code, interval)
             return []
 
-        # 新しい順にソートして max_count で切る
+        # NaN行を除外してから新しい順にソートして max_count で切る
+        df = df.dropna(subset=["Open", "High", "Low", "Close"])
         df = df.sort_index(ascending=False).head(max_count).sort_index()
 
         records: list[dict[str, Any]] = []
